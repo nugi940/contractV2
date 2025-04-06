@@ -5,7 +5,7 @@
 
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
 import {ERC721Enumerable} from "../../external/ERC721/ERC721Enumerable.sol";

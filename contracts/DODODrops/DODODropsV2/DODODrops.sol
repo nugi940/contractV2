@@ -2,7 +2,7 @@
     Copyright 2021 DODO ZOO.
     SPDX-License-Identifier: Apache-2.0
 */
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
 import {IERC20} from "../../intf/IERC20.sol";
@@ -260,7 +260,7 @@ contract DODODrops is InitializableMintableERC20, ReentrancyGuard {
 
     function withdraw() external onlyOwner {
         uint256 amount = IERC20(_BUY_TOKEN_).universalBalanceOf(address(this));
-        IERC20(_BUY_TOKEN_).universalTransfer(msg.sender ,amount);
+        IERC20(_BUY_TOKEN_).universalTransfer(payable(msg.sender), amount);
         emit Withdraw(msg.sender, amount);
     }
 
@@ -337,7 +337,7 @@ contract DODODrops is InitializableMintableERC20, ReentrancyGuard {
     }
 
     function addressToShortString(address _addr) public pure returns (string memory) {
-        bytes32 value = bytes32(uint256(_addr));
+       bytes32 value = bytes32(uint256(uint160(_addr)));
         bytes memory alphabet = "0123456789abcdef";
 
         bytes memory str = new bytes(8);

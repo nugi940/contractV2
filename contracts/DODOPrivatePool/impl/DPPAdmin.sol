@@ -5,7 +5,7 @@
 
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
 import {IDPP} from "../intf/IDPP.sol";
@@ -76,7 +76,7 @@ contract DPPAdmin is InitializableOwnable {
             msg.sender == _OWNER_ ||
                 (IDODOApproveProxy(_DODO_APPROVE_PROXY_).isAllowedProxy(msg.sender) &&
                     operator == _OPERATOR_),
-            "RESET FORBIDDEN！"
+           "RESET FORBIDDEN!"
         );
         return
             IDPP(_DPP_).reset(

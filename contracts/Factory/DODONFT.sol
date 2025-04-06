@@ -5,7 +5,7 @@
 
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 
 import {ERC721URIStorage} from "../external/ERC721/ERC721URIStorage.sol";
 import {InitializableOwnable} from "../lib/InitializableOwnable.sol";

@@ -5,7 +5,7 @@
 
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 
 import {IERC721} from "../intf/IERC721.sol";
 import {IERC1155} from "../intf/IERC1155.sol";

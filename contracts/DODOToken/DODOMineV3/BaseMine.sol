@@ -4,19 +4,17 @@
     SPDX-License-Identifier: Apache-2.0
 
 */
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
 import {SafeERC20} from "../../lib/SafeERC20.sol";
 import {IERC20} from "../../intf/IERC20.sol";
-import {SafeMath} from "../../lib/SafeMath.sol";
 import {DecimalMath} from "../../lib/DecimalMath.sol";
 import {InitializableOwnable} from "../../lib/InitializableOwnable.sol";
 import {IRewardVault, RewardVault} from "./RewardVault.sol";
 
 contract BaseMine is InitializableOwnable {
     using SafeERC20 for IERC20;
-    using SafeMath for uint256;
 
     // ============ Storage ============
 
@@ -51,7 +49,7 @@ contract BaseMine is InitializableOwnable {
     // ============ View  ============
 
     function getPendingReward(address user, uint256 i) public view returns (uint256) {
-        require(i<rewardTokenInfos.length, "DODOMineV3: REWARD_ID_NOT_FOUND");
+        require(i < rewardTokenInfos.length, "DODOMineV3: REWARD_ID_NOT_FOUND");
         RewardTokenInfo storage rt = rewardTokenInfos[i];
         uint256 accRewardPerShare = rt.accRewardPerShare;
         if (rt.lastRewardBlock != block.number) {
@@ -60,8 +58,8 @@ contract BaseMine is InitializableOwnable {
         return
             DecimalMath.mulFloor(
                 balanceOf(user), 
-                accRewardPerShare.sub(rt.userRewardPerSharePaid[user])
-            ).add(rt.userRewards[user]);
+                accRewardPerShare - rt.userRewardPerSharePaid[user]
+            ) + rt.userRewards[user];
     }
 
     function getPendingRewardByToken(address user, address rewardToken) external view returns (uint256) {
@@ -77,8 +75,8 @@ contract BaseMine is InitializableOwnable {
     }
 
     function getRewardTokenById(uint256 i) external view returns (address) {
-        require(i<rewardTokenInfos.length, "DODOMineV3: REWARD_ID_NOT_FOUND");
-        RewardTokenInfo memory rt = rewardTokenInfos[i];
+        require(i < rewardTokenInfos.length, "DODOMineV3: REWARD_ID_NOT_FOUND");
+        RewardTokenInfo storage rt = rewardTokenInfos[i];
         return rt.rewardToken;
     }
 
@@ -111,12 +109,12 @@ contract BaseMine is InitializableOwnable {
         for (uint256 i = 0; i < len; i++) {
             if (rewardToken == rewardTokenInfos[i].rewardToken) {
                 uint256 totalDepositReward = IRewardVault(rewardTokenInfos[i].rewardVault)._TOTAL_REWARD_();
-                uint256 gap = rewardTokenInfos[i].endBlock.sub(rewardTokenInfos[i].lastFlagBlock);
-                uint256 totalReward = rewardTokenInfos[i].workThroughReward.add(gap.mul(rewardTokenInfos[i].rewardPerBlock));
-                if(totalDepositReward >= totalReward) {
+                uint256 gap = rewardTokenInfos[i].endBlock - rewardTokenInfos[i].lastFlagBlock;
+                uint256 totalReward = rewardTokenInfos[i].workThroughReward + gap * rewardTokenInfos[i].rewardPerBlock;
+                if (totalDepositReward >= totalReward) {
                     return 0;
-                }else {
-                    return totalReward.sub(totalDepositReward);
+                } else {
+                    return totalReward - totalDepositReward;
                 }
             }
         }
@@ -126,7 +124,7 @@ contract BaseMine is InitializableOwnable {
     // ============ Claim ============
 
     function claimReward(uint256 i) public {
-        require(i<rewardTokenInfos.length, "DODOMineV3: REWARD_ID_NOT_FOUND");
+        require(i < rewardTokenInfos.length, "DODOMineV3: REWARD_ID_NOT_FOUND");
         _updateReward(msg.sender, i);
         RewardTokenInfo storage rt = rewardTokenInfos[i];
         uint256 reward = rt.userRewards[msg.sender];
@@ -172,11 +170,36 @@ contract BaseMine is InitializableOwnable {
         rt.rewardPerBlock = rewardPerBlock;
         rt.rewardVault = address(new RewardVault(rewardToken));
 
-        uint256 rewardAmount = rewardPerBlock.mul(endBlock.sub(startBlock));
+        uint256 rewardAmount = rewardPerBlock * (endBlock - startBlock);
         IERC20(rewardToken).safeTransfer(rt.rewardVault, rewardAmount);
         RewardVault(rt.rewardVault).syncValue();
 
         emit NewRewardToken(len, rewardToken);
+    }
+
+    function removeRewardToken(address rewardToken) external onlyOwner {
+        uint256 len = rewardTokenInfos.length;
+        for (uint256 i = 0; i < len; i++) {
+            if (rewardToken == rewardTokenInfos[i].rewardToken) {
+                if (i != len - 1) {
+                    // Manually copy fields from the last element to the current position
+                    RewardTokenInfo storage target = rewardTokenInfos[i];
+                    RewardTokenInfo storage last = rewardTokenInfos[len - 1];
+                    target.rewardToken = last.rewardToken;
+                    target.startBlock = last.startBlock;
+                    target.endBlock = last.endBlock;
+                    target.rewardVault = last.rewardVault;
+                    target.rewardPerBlock = last.rewardPerBlock;
+                    target.accRewardPerShare = last.accRewardPerShare;
+                    target.lastRewardBlock = last.lastRewardBlock;
+                    target.workThroughReward = last.workThroughReward;
+                    target.lastFlagBlock = last.lastFlagBlock;
+                }
+                rewardTokenInfos.pop();
+                emit RemoveRewardToken(rewardToken);
+                break;
+            }
+        }
     }
 
     function setEndBlock(uint256 i, uint256 newEndBlock)
@@ -187,10 +210,9 @@ contract BaseMine is InitializableOwnable {
         _updateReward(address(0), i);
         RewardTokenInfo storage rt = rewardTokenInfos[i];
 
-
         uint256 totalDepositReward = RewardVault(rt.rewardVault)._TOTAL_REWARD_();
-        uint256 gap = newEndBlock.sub(rt.lastFlagBlock);
-        uint256 totalReward = rt.workThroughReward.add(gap.mul(rt.rewardPerBlock));
+        uint256 gap = newEndBlock - rt.lastFlagBlock;
+        uint256 totalReward = rt.workThroughReward + gap * rt.rewardPerBlock;
         require(totalDepositReward >= totalReward, "DODOMineV3: REWARD_NOT_ENOUGH");
 
         require(block.number < newEndBlock, "DODOMineV3: END_BLOCK_INVALID");
@@ -211,13 +233,13 @@ contract BaseMine is InitializableOwnable {
         
         require(block.number < rt.endBlock, "DODOMineV3: ALREADY_CLOSE");
         
-        rt.workThroughReward = rt.workThroughReward.add((block.number.sub(rt.lastFlagBlock)).mul(rt.rewardPerBlock));
+        rt.workThroughReward = rt.workThroughReward + (block.number - rt.lastFlagBlock) * rt.rewardPerBlock;
         rt.rewardPerBlock = newRewardPerBlock;
         rt.lastFlagBlock = block.number;
 
         uint256 totalDepositReward = RewardVault(rt.rewardVault)._TOTAL_REWARD_();
-        uint256 gap = rt.endBlock.sub(block.number);
-        uint256 totalReward = rt.workThroughReward.add(gap.mul(newRewardPerBlock));
+        uint256 gap = rt.endBlock - block.number;
+        uint256 totalReward = rt.workThroughReward + gap * newRewardPerBlock;
         require(totalDepositReward >= totalReward, "DODOMineV3: REWARD_NOT_ENOUGH");
 
         emit UpdateReward(i, newRewardPerBlock);
@@ -229,16 +251,15 @@ contract BaseMine is InitializableOwnable {
         RewardTokenInfo storage rt = rewardTokenInfos[i];
         require(block.number > rt.endBlock, "DODOMineV3: MINING_NOT_FINISHED");
         
-        uint256 gap = rt.endBlock.sub(rt.lastFlagBlock);
-        uint256 totalReward = rt.workThroughReward.add(gap.mul(rt.rewardPerBlock));
+        uint256 gap = rt.endBlock - rt.lastFlagBlock;
+        uint256 totalReward = rt.workThroughReward + gap * rt.rewardPerBlock;
         uint256 totalDepositReward = IRewardVault(rt.rewardVault)._TOTAL_REWARD_();
-        require(amount <= totalDepositReward.sub(totalReward), "DODOMineV3: NOT_ENOUGH");
+        require(amount <= totalDepositReward - totalReward, "DODOMineV3: NOT_ENOUGH");
 
-        IRewardVault(rt.rewardVault).withdrawLeftOver(msg.sender,amount);
+        IRewardVault(rt.rewardVault).withdrawLeftOver(msg.sender, amount);
 
         emit WithdrawLeftOver(msg.sender, i);
     }
-
 
     function directTransferOwnership(address newOwner) external onlyOwner {
         require(newOwner != address(0), "DODOMineV3: ZERO_ADDRESS");
@@ -250,7 +271,7 @@ contract BaseMine is InitializableOwnable {
 
     function _updateReward(address user, uint256 i) internal {
         RewardTokenInfo storage rt = rewardTokenInfos[i];
-        if (rt.lastRewardBlock != block.number){
+        if (rt.lastRewardBlock != block.number) {
             rt.accRewardPerShare = _getAccRewardPerShare(i);
             rt.lastRewardBlock = block.number;
         }
@@ -268,24 +289,22 @@ contract BaseMine is InitializableOwnable {
     }
 
     function _getUnrewardBlockNum(uint256 i) internal view returns (uint256) {
-        RewardTokenInfo memory rt = rewardTokenInfos[i];
+        RewardTokenInfo storage rt = rewardTokenInfos[i];
         if (block.number < rt.startBlock || rt.lastRewardBlock > rt.endBlock) {
             return 0;
         }
         uint256 start = rt.lastRewardBlock < rt.startBlock ? rt.startBlock : rt.lastRewardBlock;
         uint256 end = rt.endBlock < block.number ? rt.endBlock : block.number;
-        return end.sub(start);
+        return end - start;
     }
 
     function _getAccRewardPerShare(uint256 i) internal view returns (uint256) {
-        RewardTokenInfo memory rt = rewardTokenInfos[i];
+        RewardTokenInfo storage rt = rewardTokenInfos[i];
         if (totalSupply() == 0) {
             return rt.accRewardPerShare;
         }
         return
-            rt.accRewardPerShare.add(
-                DecimalMath.divFloor(_getUnrewardBlockNum(i).mul(rt.rewardPerBlock), totalSupply())
-            );
+            rt.accRewardPerShare +
+            DecimalMath.divFloor(_getUnrewardBlockNum(i) * rt.rewardPerBlock, totalSupply());
     }
-
 }

@@ -1,11 +1,8 @@
 /*
-
     Copyright 2021 DODO ZOO.
     SPDX-License-Identifier: Apache-2.0
-
 */
-
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
 import {ICloneFactory} from "../lib/CloneFactory.sol";
@@ -35,15 +32,8 @@ interface ICustomERC20 {
     ) external;
 }
 
-/**
- * @title DODO ERC20V2Factory
- * @author DODO Breeder
- *
- * @notice Help user to create erc20 token
- */
 contract ERC20V2Factory is InitializableOwnable {
     // ============ Templates ============
-
     address public immutable _CLONE_FACTORY_;
     address public _ERC20_TEMPLATE_;
     address public _CUSTOM_ERC20_TEMPLATE_;
@@ -63,16 +53,14 @@ contract ERC20V2Factory is InitializableOwnable {
     mapping(address => address[]) public _USER_CUSTOM_REGISTRY_;
 
     // ============ Functions ============
-
     fallback() external payable {}
-
     receive() external payable {}
 
     constructor(
         address cloneFactory,
         address erc20Template,
         address customErc20Template
-    ) public {
+    ) {
         _CLONE_FACTORY_ = cloneFactory;
         _ERC20_TEMPLATE_ = erc20Template;
         _CUSTOM_ERC20_TEMPLATE_ = customErc20Template;
@@ -103,7 +91,6 @@ contract ERC20V2Factory is InitializableOwnable {
     ) external payable returns (address newCustomERC20) {
         require(msg.value >= _CREATE_FEE_, "CREATE_FEE_NOT_ENOUGH");
         newCustomERC20 = ICloneFactory(_CLONE_FACTORY_).clone(_CUSTOM_ERC20_TEMPLATE_);
-
         ICustomERC20(newCustomERC20).init(
             msg.sender,
             initSupply, 
@@ -115,20 +102,18 @@ contract ERC20V2Factory is InitializableOwnable {
             teamAccount,
             isMintable
         );
-
         _USER_CUSTOM_REGISTRY_[msg.sender].push(newCustomERC20);
-        if(isMintable)
+        if (isMintable)
             emit NewERC20(newCustomERC20, msg.sender, 2);
         else 
             emit NewERC20(newCustomERC20, msg.sender, 1);
     }
 
-
     // ============ View ============
     function getTokenByUser(address user) 
         external
         view
-        returns (address[] memory stds,address[] memory customs)
+        returns (address[] memory stds, address[] memory customs)
     {
         return (_USER_STD_REGISTRY_[user], _USER_CUSTOM_REGISTRY_[user]);
     }
@@ -141,7 +126,7 @@ contract ERC20V2Factory is InitializableOwnable {
 
     function withdraw() external onlyOwner {
         uint256 amount = address(this).balance;
-        msg.sender.transfer(amount);
+        payable(msg.sender).transfer(amount); // Perbaikan di sini
         emit Withdraw(msg.sender, amount);
     }
 

@@ -5,7 +5,7 @@
 
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
 import {DPPStorage} from "./DPPStorage.sol";
@@ -64,7 +64,7 @@ contract DPPVault is DPPStorage {
     // ============ Set Status ============
 
     function _setReserve(uint256 baseReserve, uint256 quoteReserve) internal {
-        require(baseReserve <= uint112(-1) && quoteReserve <= uint112(-1), "OVERFLOW");
+      require(baseReserve <= type(uint112).max && quoteReserve <= type(uint112).max, "OVERFLOW");
         _BASE_RESERVE_ = uint112(baseReserve);
         _QUOTE_RESERVE_ = uint112(quoteReserve);
 
@@ -75,7 +75,7 @@ contract DPPVault is DPPStorage {
         uint256 baseBalance = _BASE_TOKEN_.balanceOf(address(this));
         uint256 quoteBalance = _QUOTE_TOKEN_.balanceOf(address(this));
         
-        require(baseBalance <= uint112(-1) && quoteBalance <= uint112(-1), "OVERFLOW");
+       require(baseBalance <= type(uint112).max && quoteBalance <= type(uint112).max, "OVERFLOW");
 
         if (baseBalance != _BASE_RESERVE_) {
             _BASE_RESERVE_ = uint112(baseBalance);
@@ -91,7 +91,7 @@ contract DPPVault is DPPStorage {
         uint256 baseBalance = _BASE_TOKEN_.balanceOf(address(this));
         uint256 quoteBalance = _QUOTE_TOKEN_.balanceOf(address(this));
 
-        require(baseBalance <= uint112(-1) && quoteBalance <= uint112(-1), "OVERFLOW");
+       require(baseBalance <= type(uint112).max && quoteBalance <= type(uint112).max, "OVERFLOW");
         
         _BASE_RESERVE_ = uint112(baseBalance);
         _QUOTE_RESERVE_ = uint112(quoteBalance);
@@ -106,7 +106,7 @@ contract DPPVault is DPPStorage {
         uint256 baseBalance = _BASE_TOKEN_.balanceOf(address(this));
         uint256 quoteBalance = _QUOTE_TOKEN_.balanceOf(address(this));
 
-        require(baseBalance <= uint112(-1) && quoteBalance <= uint112(-1), "OVERFLOW");
+       require(baseBalance <= type(uint112).max && quoteBalance <= type(uint112).max, "OVERFLOW");
 
         if (baseBalance != _BASE_RESERVE_) {
             _BASE_TARGET_ = uint112(uint256(_BASE_TARGET_).mul(baseBalance).div(uint256(_BASE_RESERVE_)));

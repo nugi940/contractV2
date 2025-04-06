@@ -1,4 +1,4 @@
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 
 /// @title Callback for IUniswapV3PoolActions#swap
 /// @notice Any contract that calls IUniswapV3PoolActions#swap must implement this interface

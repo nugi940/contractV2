@@ -6,7 +6,7 @@
 
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
 import {IERC20} from "../intf/IERC20.sol";

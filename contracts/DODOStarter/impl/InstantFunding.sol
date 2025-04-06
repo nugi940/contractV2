@@ -5,19 +5,16 @@
 
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
 import {IQuota} from "../../DODOFee/UserQuota.sol";
-import {SafeMath} from "../../lib/SafeMath.sol";
 import {DecimalMath} from "../../lib/DecimalMath.sol";
 import {IERC20} from "../../intf/IERC20.sol";
 import {SafeERC20} from "../../lib/SafeERC20.sol";
 import {Vesting} from "./Vesting.sol";
 
-
 contract InstantFunding is Vesting {
-    using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
     // ============ Instant Commit Mode ============
@@ -42,15 +39,6 @@ contract InstantFunding is Vesting {
         uint256[] calldata timeLine,
         uint256[] calldata valueList
     ) external {
-        /*
-        Address List
-        0. owner
-        1. sellToken
-        2. fundToken
-        3. quotaManager
-        4. poolFactory
-      */
-
         require(addressList.length == 5, "ADDR_LENGTH_WRONG");
 
         initOwner(addressList[0]);
@@ -58,18 +46,6 @@ contract InstantFunding is Vesting {
         _FUNDS_ADDRESS_ = addressList[2];
         _QUOTA_ = addressList[3];
         _POOL_FACTORY_ = addressList[4];
-
-        /*
-        Time Line
-        0. starttime
-        1. bid duration
-        2. token vesting starttime
-        3. token vesting duration
-        4. fund vesting starttime
-        5. fund vesting duration
-        6. lp vesting starttime
-        7. lp vesting duration
-        */
 
         require(timeLine.length == 8, "TIME_LENGTH_WRONG");
 
@@ -86,19 +62,9 @@ contract InstantFunding is Vesting {
         _LP_VESTING_DURATION_ = timeLine[7];
 
         require(block.timestamp <= _START_TIME_, "START_TIME_WRONG");
-        require(_START_TIME_.add(_BIDDING_DURATION_) <= _TOKEN_VESTING_START_, "TOKEN_VESTING_TIME_WRONG");
-        require(_START_TIME_.add(_BIDDING_DURATION_) <= _FUNDS_VESTING_START_, "FUND_VESTING_TIME_WRONG");
-        require(_START_TIME_.add(_BIDDING_DURATION_) <= _LP_VESTING_START_, "LP_VESTING_TIME_WRONG");
-
-        /*
-        Value List
-        0. start price
-        1. end price
-        2. token cliffRate
-        3. fund cliffRate
-        4. lp cliffRate
-        5. initial liquidity
-        */
+        require(_START_TIME_ + _BIDDING_DURATION_ <= _TOKEN_VESTING_START_, "TOKEN_VESTING_TIME_WRONG");
+        require(_START_TIME_ + _BIDDING_DURATION_ <= _FUNDS_VESTING_START_, "FUND_VESTING_TIME_WRONG");
+        require(_START_TIME_ + _BIDDING_DURATION_ <= _LP_VESTING_START_, "LP_VESTING_TIME_WRONG");
 
         require(valueList.length == 6, "VALUE_LENGTH_WRONG");
 
@@ -126,13 +92,12 @@ contract InstantFunding is Vesting {
     function getCurrentPrice() public view returns (uint256 price) {
         if (block.timestamp <= _START_TIME_) {
             price = _START_PRICE_;
-        } else if (block.timestamp >= _START_TIME_.add(_BIDDING_DURATION_)) {
+        } else if (block.timestamp >= _START_TIME_ + _BIDDING_DURATION_) {
             price = _END_PRICE_;
         } else {
-            uint256 timePast = block.timestamp.sub(_START_TIME_);
-            price = _START_PRICE_.mul(_BIDDING_DURATION_.sub(timePast)).div(_BIDDING_DURATION_).add(
-                _END_PRICE_.mul(timePast).div(_BIDDING_DURATION_)
-            );
+            uint256 timePast = block.timestamp - _START_TIME_;
+            price = _START_PRICE_ * (_BIDDING_DURATION_ - timePast) / _BIDDING_DURATION_ +
+                    _END_PRICE_ * timePast / _BIDDING_DURATION_;
         }
     }
 
@@ -153,38 +118,36 @@ contract InstantFunding is Vesting {
         returns (uint256 newTokenAllocation)
     {
         require(isDepositOpen(), "DEPOSIT_NOT_OPEN");
-        // input fund check
-        uint256 inputFund = IERC20(_FUNDS_ADDRESS_).balanceOf(address(this)).sub(_FUNDS_RESERVE_);
+        uint256 inputFund = IERC20(_FUNDS_ADDRESS_).balanceOf(address(this)) - _FUNDS_RESERVE_;
 
         if (_QUOTA_ != address(0)) {
             require(
-                inputFund.add(_FUNDS_USED_[to]) <= uint256(IQuota(_QUOTA_).getUserQuota(to)),
+                inputFund + _FUNDS_USED_[to] <= uint256(IQuota(_QUOTA_).getUserQuota(to)),
                 "QUOTA_EXCEED"
             );
         }
 
-        // allocation calculation
         uint256 currentPrice = getCurrentPrice();
         newTokenAllocation = DecimalMath.divFloor(inputFund, currentPrice);
 
         uint256 depositFundAmount = inputFund;
-        if (newTokenAllocation.add(_TOTAL_ALLOCATED_TOKEN_) > _TOTAL_TOKEN_AMOUNT_) {
-            newTokenAllocation = _TOTAL_TOKEN_AMOUNT_.sub(_TOTAL_ALLOCATED_TOKEN_);
+        if (newTokenAllocation + _TOTAL_ALLOCATED_TOKEN_ > _TOTAL_TOKEN_AMOUNT_) {
+            newTokenAllocation = _TOTAL_TOKEN_AMOUNT_ - _TOTAL_ALLOCATED_TOKEN_;
             uint256 fundUsed = DecimalMath.mulFloor(newTokenAllocation, currentPrice);
-            _FUNDS_USED_[to] = _FUNDS_USED_[to].add(fundUsed);
-            _TOTAL_RAISED_FUNDS_ = _TOTAL_RAISED_FUNDS_.add(fundUsed);
-            _FUNDS_RESERVE_ = _FUNDS_RESERVE_.add(fundUsed);
+            _FUNDS_USED_[to] = _FUNDS_USED_[to] + fundUsed;
+            _TOTAL_RAISED_FUNDS_ = _TOTAL_RAISED_FUNDS_ + fundUsed;
+            _FUNDS_RESERVE_ = _FUNDS_RESERVE_ + fundUsed;
             depositFundAmount = fundUsed;
 
-            IERC20(_FUNDS_ADDRESS_).safeTransfer(to, inputFund.sub(fundUsed));
+            IERC20(_FUNDS_ADDRESS_).safeTransfer(to, inputFund - fundUsed);
         } else {
-            _FUNDS_USED_[to] = _FUNDS_USED_[to].add(inputFund);
-            _TOTAL_RAISED_FUNDS_ = _TOTAL_RAISED_FUNDS_.add(inputFund);
-            _FUNDS_RESERVE_ = _FUNDS_RESERVE_.add(inputFund);
+            _FUNDS_USED_[to] = _FUNDS_USED_[to] + inputFund;
+            _TOTAL_RAISED_FUNDS_ = _TOTAL_RAISED_FUNDS_ + inputFund;
+            _FUNDS_RESERVE_ = _FUNDS_RESERVE_ + inputFund;
         }
 
-        _TOKEN_ALLOCATION_[to] = _TOKEN_ALLOCATION_[to].add(newTokenAllocation);
-        _TOTAL_ALLOCATED_TOKEN_ = _TOTAL_ALLOCATED_TOKEN_.add(newTokenAllocation);
+        _TOKEN_ALLOCATION_[to] = _TOKEN_ALLOCATION_[to] + newTokenAllocation;
+        _TOTAL_ALLOCATED_TOKEN_ = _TOTAL_ALLOCATED_TOKEN_ + newTokenAllocation;
 
         emit DepositFund(to, depositFundAmount, newTokenAllocation);
     }
@@ -200,7 +163,7 @@ contract InstantFunding is Vesting {
 
     function withdrawUnallocatedToken(address to) external preventReentrant onlyOwner {
         require(isFundingEnd(), "CAN_NOT_WITHDRAW");
-        uint256 unallocatedAmount = _TOTAL_TOKEN_AMOUNT_.sub(_TOTAL_ALLOCATED_TOKEN_);
+        uint256 unallocatedAmount = _TOTAL_TOKEN_AMOUNT_ - _TOTAL_ALLOCATED_TOKEN_;
         IERC20(_TOKEN_ADDRESS_).safeTransfer(to, unallocatedAmount);
         _TOTAL_TOKEN_AMOUNT_ = _TOTAL_ALLOCATED_TOKEN_;
 
@@ -208,14 +171,14 @@ contract InstantFunding is Vesting {
     }
 
     function initializeLiquidity(uint256 initialTokenAmount, uint256 lpFeeRate, bool isOpenTWAP) external preventReentrant onlyOwner {
-        require(isFundingEnd(),"FUNDING_NOT_FINISHED");
+        require(isFundingEnd(), "FUNDING_NOT_FINISHED");
         _initializeLiquidity(initialTokenAmount, _TOTAL_RAISED_FUNDS_, lpFeeRate, isOpenTWAP);
 
         emit InitializeLiquidity(_INITIAL_POOL_, initialTokenAmount);
     }
 
     function claimFund(address to) external preventReentrant onlyOwner {
-        uint256 claimableFund = _claimFunds(to,_TOTAL_RAISED_FUNDS_);
+        uint256 claimableFund = _claimFunds(to, _TOTAL_RAISED_FUNDS_);
 
         emit ClaimFund(to, claimableFund);
     }
@@ -223,15 +186,13 @@ contract InstantFunding is Vesting {
     // ============ Timeline Control Functions ============
 
     function isDepositOpen() public view returns (bool) {
-        return
-            block.timestamp >= _START_TIME_ &&
-            block.timestamp < _START_TIME_.add(_BIDDING_DURATION_);
+        return block.timestamp >= _START_TIME_ &&
+               block.timestamp < _START_TIME_ + _BIDDING_DURATION_;
     }
 
     function isFundingEnd() public view returns (bool) {
-        return block.timestamp > _START_TIME_.add(_BIDDING_DURATION_);
+        return block.timestamp > _START_TIME_ + _BIDDING_DURATION_;
     }
-
 
     // ============ Version Control ============
 
@@ -252,42 +213,40 @@ contract InstantFunding is Vesting {
         uint256 userQuota,
         uint256 userCurrentQuota
     ) {
-        raiseFundAmount =_TOTAL_RAISED_FUNDS_;
-        userFundAmount =  _FUNDS_USED_[user];
+        raiseFundAmount = _TOTAL_RAISED_FUNDS_;
+        userFundAmount = _FUNDS_USED_[user];
         currentPrice = getCurrentPrice();
         soldTokenAmount = _TOTAL_ALLOCATED_TOKEN_;
 
-        if(block.timestamp > _TOKEN_VESTING_START_) {
+        if (block.timestamp > _TOKEN_VESTING_START_) {
             uint256 totalAllocation = getUserTokenAllocation(user);
             uint256 remainingToken = DecimalMath.mulFloor(
-                getRemainingRatio(block.timestamp,0),
+                getRemainingRatio(block.timestamp, 0),
                 totalAllocation
             );            
             claimedTokenAmount = _CLAIMED_TOKEN_[user];
-            claimableTokenAmount = totalAllocation.sub(remainingToken).sub(claimedTokenAmount);
-        }else {
+            claimableTokenAmount = totalAllocation - remainingToken - claimedTokenAmount;
+        } else {
             claimableTokenAmount = 0;
             claimedTokenAmount = 0;
         }
 
         totalClaimAmount = getUserTokenAllocation(user);
 
-
-        if(_QUOTA_ == address(0)) {
+        if (_QUOTA_ == address(0)) {
             isHaveCap = false;
-            userQuota = uint256(-1);
-            userCurrentQuota = uint256(-1);
+            userQuota = type(uint256).max;
+            userCurrentQuota = type(uint256).max;
         } else {
             isHaveCap = true;
             userQuota = uint256(IQuota(_QUOTA_).getUserQuota(user));
-            if(userQuota > userFundAmount) {
+            if (userQuota > userFundAmount) {
                 userCurrentQuota = userQuota - userFundAmount;
             } else {
                 userCurrentQuota = 0;
             }
         }
     }
-
 
     function getBaseFundInfo() external view returns(
         address tokenAddress,

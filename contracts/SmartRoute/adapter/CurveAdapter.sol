@@ -3,7 +3,7 @@
     SPDX-License-Identifier: Apache-2.0
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 
 import {IDODOAdapter} from "../intf/IDODOAdapter.sol";
 import {ICurve} from "../intf/ICurve.sol";

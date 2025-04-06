@@ -5,18 +5,16 @@
 
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
 import {IQuota} from "../../DODOFee/UserQuota.sol";
-import {SafeMath} from "../../lib/SafeMath.sol";
 import {DecimalMath} from "../../lib/DecimalMath.sol";
 import {IERC20} from "../../intf/IERC20.sol";
 import {SafeERC20} from "../../lib/SafeERC20.sol";
 import {Vesting} from "./Vesting.sol";
 
 contract FairFundingV2 is Vesting {
-    using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
     uint256 internal constant _SETTEL_FUND_ = 2e17;
@@ -33,7 +31,6 @@ contract FairFundingV2 is Vesting {
 
     bool public _IS_OVERCAP_STOP = false;
     bool public _HAS_DEPOSIT_SELLTOKEN = false;
-
 
     // ============ Events ============
     event Settle(address indexed account);
@@ -60,7 +57,6 @@ contract FairFundingV2 is Vesting {
         3. quotaManager
         4. poolFactory
       */
-
         require(addressList.length == 5, "ADDR_LENGTH_WRONG");
 
         initOwner(addressList[0]);
@@ -81,7 +77,6 @@ contract FairFundingV2 is Vesting {
         7. lp vesting starttime
         8. lp vesting duration
         */
-
         require(timeLine.length == 9, "TIME_LENGTH_WRONG");
 
         _START_TIME_ = timeLine[0];
@@ -98,9 +93,9 @@ contract FairFundingV2 is Vesting {
         _LP_VESTING_DURATION_ = timeLine[8];
 
         require(block.timestamp <= _START_TIME_, "START_TIME_WRONG");
-        require(_START_TIME_.add(_BIDDING_DURATION_).add(_COOLING_DURATION_) <= _TOKEN_VESTING_START_, "TOKEN_VESTING_TIME_WRONG");
-        require(_START_TIME_.add(_BIDDING_DURATION_).add(_COOLING_DURATION_) <= _FUNDS_VESTING_START_, "FUND_VESTING_TIME_WRONG");
-        require(_START_TIME_.add(_BIDDING_DURATION_).add(_COOLING_DURATION_) <= _LP_VESTING_START_, "LP_VESTING_TIME_WRONG");
+        require(_START_TIME_ + _BIDDING_DURATION_ + _COOLING_DURATION_ <= _TOKEN_VESTING_START_, "TOKEN_VESTING_TIME_WRONG");
+        require(_START_TIME_ + _BIDDING_DURATION_ + _COOLING_DURATION_ <= _FUNDS_VESTING_START_, "FUND_VESTING_TIME_WRONG");
+        require(_START_TIME_ + _BIDDING_DURATION_ + _COOLING_DURATION_ <= _LP_VESTING_START_, "LP_VESTING_TIME_WRONG");
 
         /*
         Value List
@@ -111,7 +106,6 @@ contract FairFundingV2 is Vesting {
         4. lp cliffRate
         5. initial liquidity
         */
-
         require(valueList.length == 6, "VALUE_LENGTH_WRONG");
 
         _LOWER_LIMIT_PRICE_ = valueList[0];
@@ -149,7 +143,7 @@ contract FairFundingV2 is Vesting {
     }
 
     function getPrice(uint256 fundAmount) public view returns (uint256 price) {
-        if(_FINAL_PRICE_ != 0) 
+        if (_FINAL_PRICE_ != 0) 
             price = _FINAL_PRICE_;
         else {
             price = DecimalMath.divFloor(fundAmount, _TOTAL_TOKEN_AMOUNT_);
@@ -166,17 +160,15 @@ contract FairFundingV2 is Vesting {
         if (_FINAL_PRICE_ == 0) {
             return 0;
         } else {
-            return
-                DecimalMath.divFloor(
-                    DecimalMath.mulFloor(_FUNDS_DEPOSITED_[user], _USED_FUND_RATIO_),
-                    _FINAL_PRICE_
-                );
+            return DecimalMath.divFloor(
+                DecimalMath.mulFloor(_FUNDS_DEPOSITED_[user], _USED_FUND_RATIO_),
+                _FINAL_PRICE_
+            );
         }
     }
 
     function getUserFundsUnused(address user) public view returns (uint256) {
-        return
-            DecimalMath.mulFloor(_FUNDS_DEPOSITED_[user], DecimalMath.ONE.sub(_USED_FUND_RATIO_));
+        return DecimalMath.mulFloor(_FUNDS_DEPOSITED_[user], DecimalMath.ONE - _USED_FUND_RATIO_);
     }
 
     function getUserFundsUsed(address user) public view returns (uint256) {
@@ -188,7 +180,7 @@ contract FairFundingV2 is Vesting {
     function settle() public isNotForceStop preventReentrant {
         require(_FINAL_PRICE_ == 0 && isFundingEnd(), "CAN_NOT_SETTLE");
         _FINAL_PRICE_ = getCurrentPrice();
-        if(_TOTAL_RAISED_FUNDS_ == 0) {
+        if (_TOTAL_RAISED_FUNDS_ == 0) {
             return;
         } 
         _USED_FUND_RATIO_ = DecimalMath.divFloor(
@@ -199,36 +191,36 @@ contract FairFundingV2 is Vesting {
             _USED_FUND_RATIO_ = DecimalMath.ONE;
         }
 
-         msg.sender.transfer(_SETTEL_FUND_);
+        payable(msg.sender).transfer(_SETTEL_FUND_);
 
-         emit Settle(msg.sender);
+        emit Settle(msg.sender);
     }
 
     // ============ Funding Functions ============
 
-    function depositFunds(address to) external preventReentrant isNotForceStop returns(uint256 inputFund) {
+    function depositFunds(address to) external preventReentrant isNotForceStop returns (uint256 inputFund) {
         require(_HAS_DEPOSIT_SELLTOKEN, "SELLTOKEN_NOT_DEPOSITED");
         require(isDepositOpen(), "DEPOSIT_NOT_OPEN");
 
         uint256 currentFundBalance = IERC20(_FUNDS_ADDRESS_).balanceOf(address(this));
 
-        if(_IS_OVERCAP_STOP) {
+        if (_IS_OVERCAP_STOP) {
             require(currentFundBalance <= DecimalMath.mulFloor(_TOTAL_TOKEN_AMOUNT_, _UPPER_LIMIT_PRICE_), "ALREADY_OVER_CAP");
         }        
 
         // input fund check
-        inputFund = currentFundBalance.sub(_FUNDS_RESERVE_);
+        inputFund = currentFundBalance - _FUNDS_RESERVE_;
 
         if (_QUOTA_ != address(0)) {
             require(
-                inputFund.add(_FUNDS_DEPOSITED_[to]) <= uint256(IQuota(_QUOTA_).getUserQuota(to)),
+                inputFund + _FUNDS_DEPOSITED_[to] <= uint256(IQuota(_QUOTA_).getUserQuota(to)),
                 "QUOTA_EXCEED"
             );
         }
 
-        _FUNDS_RESERVE_ = _FUNDS_RESERVE_.add(inputFund);
-        _FUNDS_DEPOSITED_[to] = _FUNDS_DEPOSITED_[to].add(inputFund);
-        _TOTAL_RAISED_FUNDS_ = _TOTAL_RAISED_FUNDS_.add(inputFund);
+        _FUNDS_RESERVE_ = _FUNDS_RESERVE_ + inputFund;
+        _FUNDS_DEPOSITED_[to] = _FUNDS_DEPOSITED_[to] + inputFund;
+        _TOTAL_RAISED_FUNDS_ = _TOTAL_RAISED_FUNDS_ + inputFund;
 
         emit DepositFund(to, inputFund);
     }
@@ -238,9 +230,9 @@ contract FairFundingV2 is Vesting {
         bool isSettled = isSettled();
         if (!isSettled) {
             require(_FUNDS_DEPOSITED_[msg.sender] >= amount, "WITHDRAW_TOO_MUCH");
-            _FUNDS_DEPOSITED_[msg.sender] = _FUNDS_DEPOSITED_[msg.sender].sub(amount);
-            _TOTAL_RAISED_FUNDS_ = _TOTAL_RAISED_FUNDS_.sub(amount);
-            _FUNDS_RESERVE_ = _FUNDS_RESERVE_.sub(amount);
+            _FUNDS_DEPOSITED_[msg.sender] = _FUNDS_DEPOSITED_[msg.sender] - amount;
+            _TOTAL_RAISED_FUNDS_ = _TOTAL_RAISED_FUNDS_ - amount;
+            _FUNDS_RESERVE_ = _FUNDS_RESERVE_ - amount;
             fundAmount = amount;
             IERC20(_FUNDS_ADDRESS_).safeTransfer(to, amount);
         } else {
@@ -259,7 +251,7 @@ contract FairFundingV2 is Vesting {
         uint256 claimableTokenAmount = _claimToken(to, totalAllocation);
 
         uint256 fundAmount = 0;
-        if(!_FUNDS_CLAIMED_[msg.sender]) {
+        if (!_FUNDS_CLAIMED_[msg.sender]) {
             _FUNDS_CLAIMED_[msg.sender] = true;
             fundAmount = getUserFundsUnused(msg.sender);
             IERC20(_FUNDS_ADDRESS_).safeTransfer(to, fundAmount);
@@ -274,7 +266,7 @@ contract FairFundingV2 is Vesting {
         require(isSettled(), "NOT_SETTLED");
         require(_FINAL_PRICE_ == _LOWER_LIMIT_PRICE_, "NO_TOKEN_LEFT");
         uint256 allocatedToken = DecimalMath.divCeil(_TOTAL_RAISED_FUNDS_, _FINAL_PRICE_);
-        uint256 unallocatedAmount = _TOTAL_TOKEN_AMOUNT_.sub(allocatedToken);
+        uint256 unallocatedAmount = _TOTAL_TOKEN_AMOUNT_ - allocatedToken;
         IERC20(_TOKEN_ADDRESS_).safeTransfer(to, unallocatedAmount);
         _TOTAL_TOKEN_AMOUNT_ = allocatedToken;
 
@@ -292,7 +284,7 @@ contract FairFundingV2 is Vesting {
     function claimFund(address to) external preventReentrant onlyOwner {
         require(isSettled(), "NOT_SETTLED");
         uint256 totalUsedRaiseFunds = DecimalMath.mulFloor(_TOTAL_RAISED_FUNDS_, _USED_FUND_RATIO_);
-        uint256 claimableFund = _claimFunds(to,totalUsedRaiseFunds);
+        uint256 claimableFund = _claimFunds(to, totalUsedRaiseFunds);
 
         emit ClaimFund(to, claimableFund);
     }
@@ -300,13 +292,12 @@ contract FairFundingV2 is Vesting {
     // ============ Timeline Control Functions ============
 
     function isDepositOpen() public view returns (bool) {
-        return
-            block.timestamp >= _START_TIME_ &&
-            block.timestamp < _START_TIME_.add(_BIDDING_DURATION_);
+        return block.timestamp >= _START_TIME_ &&
+               block.timestamp < _START_TIME_ + _BIDDING_DURATION_;
     }
 
     function isFundingEnd() public view returns (bool) {
-        return block.timestamp > _START_TIME_.add(_BIDDING_DURATION_).add(_COOLING_DURATION_);
+        return block.timestamp > _START_TIME_ + _BIDDING_DURATION_ + _COOLING_DURATION_;
     }
 
     function isSettled() public view returns (bool) {
@@ -320,7 +311,7 @@ contract FairFundingV2 is Vesting {
     }
 
     // ============ View Helper  ==============
-    function getCurrentFundingInfo(address user) external view returns(
+    function getCurrentFundingInfo(address user) external view returns (
         uint256 raiseFundAmount,
         uint256 userFundAmount,
         uint256 currentPrice,
@@ -332,26 +323,26 @@ contract FairFundingV2 is Vesting {
         uint256 userQuota,
         uint256 userCurrentQuota
     ) {
-        raiseFundAmount =_TOTAL_RAISED_FUNDS_;
-        userFundAmount =  _FUNDS_DEPOSITED_[user];
+        raiseFundAmount = _TOTAL_RAISED_FUNDS_;
+        userFundAmount = _FUNDS_DEPOSITED_[user];
         currentPrice = getCurrentPrice();
         uint256 tmpSoldTokenAmount = DecimalMath.divCeil(_TOTAL_RAISED_FUNDS_, currentPrice);
         soldTokenAmount = tmpSoldTokenAmount > _TOTAL_TOKEN_AMOUNT_ ? _TOTAL_TOKEN_AMOUNT_ : tmpSoldTokenAmount;
 
-        if(block.timestamp > _TOKEN_VESTING_START_) {
+        if (block.timestamp > _TOKEN_VESTING_START_) {
             uint256 totalAllocation = getUserTokenAllocation(user);
             uint256 remainingToken = DecimalMath.mulFloor(
-                getRemainingRatio(block.timestamp,0),
+                getRemainingRatio(block.timestamp, 0),
                 totalAllocation
             );
             claimedTokenAmount = _CLAIMED_TOKEN_[user];
-            claimableTokenAmount = totalAllocation.sub(remainingToken).sub(claimedTokenAmount);
-        }else {
+            claimableTokenAmount = totalAllocation - remainingToken - claimedTokenAmount;
+        } else {
             claimableTokenAmount = 0;
-            claimedTokenAmount =0;
+            claimedTokenAmount = 0;
         }
 
-        if(raiseFundAmount == 0) {
+        if (raiseFundAmount == 0) {
             totalClaimAmount = 0;
         } else {
             uint256 usedFundRatio = DecimalMath.divFloor(
@@ -363,20 +354,20 @@ contract FairFundingV2 is Vesting {
                 usedFundRatio = DecimalMath.ONE;
             }
 
-            totalClaimAmount =  DecimalMath.divFloor(
+            totalClaimAmount = DecimalMath.divFloor(
                 DecimalMath.mulFloor(userFundAmount, usedFundRatio),
                 currentPrice
             );
         }
 
-        if(_QUOTA_ == address(0)) {
+        if (_QUOTA_ == address(0)) {
             isHaveCap = false;
-            userQuota = uint256(-1);
-            userCurrentQuota = uint256(-1);
+            userQuota = type(uint256).max;
+            userCurrentQuota = type(uint256).max;
         } else {
             isHaveCap = true;
             userQuota = uint256(IQuota(_QUOTA_).getUserQuota(user));
-            if(userQuota > userFundAmount) {
+            if (userQuota > userFundAmount) {
                 userCurrentQuota = userQuota - userFundAmount;
             } else {
                 userCurrentQuota = 0;
@@ -384,7 +375,7 @@ contract FairFundingV2 is Vesting {
         }
     }
 
-    function getBaseFundInfo() external view returns(
+    function getBaseFundInfo() external view returns (
         address tokenAddress,
         address fundAddress,
         uint256 totalTokenAmount,
@@ -412,8 +403,7 @@ contract FairFundingV2 is Vesting {
         tokenCliffRate = _TOKEN_CLIFF_RATE_;
     }
 
-
-    function getFairFundInfo(address user) external view returns(
+    function getFairFundInfo(address user) external view returns (
         bool isOverCapStop,
         uint256 finalPrice,
         uint256 userUnusedFundAmount,
@@ -426,5 +416,4 @@ contract FairFundingV2 is Vesting {
         coolDuration = _COOLING_DURATION_;
         fundsClaimed = _FUNDS_CLAIMED_[user];
     }
-
 }

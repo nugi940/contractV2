@@ -1,11 +1,9 @@
 /*
-
     Copyright 2020 DODO ZOO.
     SPDX-License-Identifier: Apache-2.0
-
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 
 import {IDODOApproveProxy} from "../DODOApproveProxy.sol";
 import {ICloneFactory} from "../../lib/CloneFactory.sol";
@@ -21,7 +19,6 @@ import {SafeERC20} from "../../lib/SafeERC20.sol";
 import {DecimalMath} from "../../lib/DecimalMath.sol";
 import {ReentrancyGuard} from "../../lib/ReentrancyGuard.sol";
 
-
 /**
  * @title DODONFTProxy
  * @author DODO Breeder
@@ -30,7 +27,6 @@ import {ReentrancyGuard} from "../../lib/ReentrancyGuard.sol";
  */
 contract DODONFTProxy is ReentrancyGuard, InitializableOwnable {
     using SafeMath for uint256;
-
 
     // ============ Storage ============
 
@@ -80,7 +76,7 @@ contract DODONFTProxy is ReentrancyGuard, InitializableOwnable {
         address fragTemplate,
         address dvmTemplate,
         address nftRegistry
-    ) public {
+    ) {
         _CLONE_FACTORY_ = cloneFactory;
         _WETH_ = weth;
         _DODO_APPROVE_PROXY_ = dodoApproveProxy;
@@ -166,7 +162,7 @@ contract DODONFTProxy is ReentrancyGuard, InitializableOwnable {
         // IDODONFTRegistry(_NFT_REGISTY_).removeRegistry(fragment);
 
         // refund dust eth
-        if (flag == 1 && msg.value > curRequireQuote) msg.sender.transfer(msg.value - curRequireQuote);
+        if (flag == 1 && msg.value > curRequireQuote) payable(msg.sender).transfer(msg.value - curRequireQuote); // Perbaikan: Konversi ke payable
 
         emit Buyout(msg.sender, fragment, curRequireQuote);
     }
@@ -201,7 +197,6 @@ contract DODONFTProxy is ReentrancyGuard, InitializableOwnable {
         _DEFAULT_MAINTAINER_ = newMaintainer;
         emit ChangeMaintainer(newMaintainer);
     }
-
 
     //============= Internal ================
 

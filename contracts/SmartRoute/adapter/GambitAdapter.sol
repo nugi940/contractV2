@@ -5,7 +5,7 @@
 
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 
 import {IGambit} from "../intf/IGambit.sol";
 import {IDODOAdapter} from "../intf/IDODOAdapter.sol";

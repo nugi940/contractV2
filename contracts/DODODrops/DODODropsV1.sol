@@ -2,7 +2,7 @@
     Copyright 2020 DODO ZOO.
     SPDX-License-Identifier: Apache-2.0
 */
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
 import {IERC20} from "../intf/IERC20.sol";
@@ -77,7 +77,7 @@ contract DODODropsV1 is ERC721URIStorage, InitializableOwnable {
 
         uint256 leftOver = msg.value - tickets.mul(_CUR_PRCIE_);
         if(leftOver > 0) 
-            msg.sender.transfer(leftOver);
+           payable(msg.sender).transfer(leftOver);
         emit BuyTicket(msg.sender, buyAmount - leftOver, tickets);
     }
 
@@ -146,7 +146,7 @@ contract DODODropsV1 is ERC721URIStorage, InitializableOwnable {
 
     function withdraw() external onlyOwner {
         uint256 amount = address(this).balance;
-        msg.sender.transfer(amount);
+      payable(msg.sender).transfer(amount);
         emit Withdraw(msg.sender, amount);
     }
 

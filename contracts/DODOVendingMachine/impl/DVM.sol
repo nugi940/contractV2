@@ -1,11 +1,8 @@
 /*
-
     Copyright 2020 DODO ZOO.
     SPDX-License-Identifier: Apache-2.0
-
 */
-
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
 import {IFeeRateModel} from "../../lib/FeeRateModel.sol";
@@ -14,12 +11,6 @@ import {DVMTrader} from "./DVMTrader.sol";
 import {DVMFunding} from "./DVMFunding.sol";
 import {DVMVault} from "./DVMVault.sol";
 
-/**
- * @title DODO VendingMachine
- * @author DODO Breeder
- *
- * @notice DODOVendingMachine initialization
- */
 contract DVM is DVMTrader, DVMFunding {
     function init(
         address maintainer,
@@ -58,14 +49,12 @@ contract DVM is DVMTrader, DVMFunding {
         symbol = "DLP";
         decimals = _BASE_TOKEN_.decimals();
 
-        // ============================== Permit ====================================
         uint256 chainId;
         assembly {
             chainId := chainid()
         }
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
-                // keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),
                 0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f,
                 keccak256(bytes(name)),
                 keccak256(bytes("1")),
@@ -73,11 +62,10 @@ contract DVM is DVMTrader, DVMFunding {
                 address(this)
             )
         );
-        // ==========================================================================
     }
 
     function addressToShortString(address _addr) public pure returns (string memory) {
-        bytes32 value = bytes32(uint256(_addr));
+        bytes32 value = bytes32(uint256(uint160(_addr))); // Perbaikan di sini
         bytes memory alphabet = "0123456789abcdef";
 
         bytes memory str = new bytes(8);
@@ -88,8 +76,6 @@ contract DVM is DVMTrader, DVMFunding {
         return string(str);
     }
 
-    // ============ Version Control ============
-    
     function version() external pure returns (string memory) {
         return "DVM 1.0.2";
     }

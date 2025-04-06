@@ -1,14 +1,11 @@
 /*
-
     Copyright 2020 DODO ZOO.
     SPDX-License-Identifier: Apache-2.0
-
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
-import {SafeMath} from "../../lib/SafeMath.sol";
 import {SafeERC20} from "../../lib/SafeERC20.sol";
 import {DecimalMath} from "../../lib/DecimalMath.sol";
 import {IERC20} from "../../intf/IERC20.sol";
@@ -24,7 +21,7 @@ contract CPFunding is CPStorage {
     // ============ Events ============
     
     event Bid(address to, uint256 amount, uint256 fee);
-    event Cancel(address to,uint256 amount);
+    event Cancel(address to, uint256 amount);
     event Settle();
 
     // ============ BID & CALM PHASE ============
@@ -41,7 +38,7 @@ contract CPFunding is CPStorage {
         uint256 input = _getQuoteInput();
         uint256 mtFee = DecimalMath.mulFloor(input, _MT_FEE_RATE_MODEL_.getFeeRate(to));
         _transferQuoteOut(_MAINTAINER_, mtFee);
-        _mintShares(to, input.sub(mtFee));
+        _mintShares(to, input - mtFee);
         _sync();
         emit Bid(to, input, mtFee);
     }
@@ -53,20 +50,20 @@ contract CPFunding is CPStorage {
         _sync();
 
         if(data.length > 0){
-            IDODOCallee(to).CPCancelCall(msg.sender,amount,data);
+            IDODOCallee(to).CPCancelCall(msg.sender, amount, data);
         }
 
-        emit Cancel(msg.sender,amount);
+        emit Cancel(msg.sender, amount);
     }
 
     function _mintShares(address to, uint256 amount) internal {
-        _SHARES_[to] = _SHARES_[to].add(amount);
-        _TOTAL_SHARES_ = _TOTAL_SHARES_.add(amount);
+        _SHARES_[to] = _SHARES_[to] + amount;
+        _TOTAL_SHARES_ = _TOTAL_SHARES_ + amount;
     }
 
     function _burnShares(address from, uint256 amount) internal {
-        _SHARES_[from] = _SHARES_[from].sub(amount);
-        _TOTAL_SHARES_ = _TOTAL_SHARES_.sub(amount);
+        _SHARES_[from] = _SHARES_[from] - amount;
+        _TOTAL_SHARES_ = _TOTAL_SHARES_ - amount;
     }
 
     // ============ SETTLEMENT ============
@@ -106,14 +103,14 @@ contract CPFunding is CPStorage {
 
         (_TOTAL_LP_AMOUNT_, ,) = IDVM(_POOL_).buyShares(address(this));
 
-        msg.sender.transfer(_SETTEL_FUND_);
+       payable(msg.sender).transfer(_SETTEL_FUND_);
 
         emit Settle();
     }
 
     // in case something wrong with base token contract
     function emergencySettle() external isNotForceStop phaseSettlement preventReentrant {
-        require(block.timestamp >= _PHASE_CALM_ENDTIME_.add(_SETTLEMENT_EXPIRE_), "NOT_EMERGENCY");
+        require(block.timestamp >= _PHASE_CALM_ENDTIME_ + _SETTLEMENT_EXPIRE_, "NOT_EMERGENCY");
         _settle();
         _UNUSED_QUOTE_ = _QUOTE_TOKEN_.balanceOf(address(this));
     }
@@ -132,36 +129,24 @@ contract CPFunding is CPStorage {
             poolQuote = _POOL_QUOTE_CAP_;
         }
         (uint256 soldBase,) = PMMPricing.sellQuoteToken(_getPMMState(), poolQuote);
-        poolBase = _TOTAL_BASE_.sub(soldBase);
+        poolBase = _TOTAL_BASE_ - soldBase;
 
-        unUsedQuote = _QUOTE_TOKEN_.balanceOf(address(this)).sub(poolQuote);
-        unUsedBase = _BASE_TOKEN_.balanceOf(address(this)).sub(poolBase);
+        unUsedQuote = _QUOTE_TOKEN_.balanceOf(address(this)) - poolQuote;
+        unUsedBase = _BASE_TOKEN_.balanceOf(address(this)) - poolBase;
 
-        // Try to make midPrice equal to avgPrice
-        // k=1, If quote and base are not balanced, one side must be cut off
-        // DVM truncated quote, but if more quote than base entering the pool, we need set the quote to the base
-
-        // m = avgPrice
-        // i = m (1-quote/(m*base))
-        // if quote = m*base i = 1
-        // if quote > m*base reverse
         uint256 avgPrice = unUsedBase == 0 ? _I_ : DecimalMath.divCeil(poolQuote, unUsedBase);
         uint256 baseDepth = DecimalMath.mulFloor(avgPrice, poolBase);
 
         if (poolQuote == 0) {
-            // ask side only DVM
             poolI = _I_;
-        } else if (unUsedBase== poolBase) {
-            // standard bonding curve
+        } else if (unUsedBase == poolBase) {
             poolI = 1;
         } else if (unUsedBase < poolBase) {
-            // poolI up round
-            uint256 ratio = DecimalMath.ONE.sub(DecimalMath.divFloor(poolQuote, baseDepth));
-            poolI = avgPrice.mul(ratio).mul(ratio).divCeil(DecimalMath.ONE2);
+            uint256 ratio = DecimalMath.ONE - DecimalMath.divFloor(poolQuote, baseDepth);
+            poolI = avgPrice * ratio * ratio / DecimalMath.ONE2;
         } else if (unUsedBase > poolBase) {
-            // poolI down round
-            uint256 ratio = DecimalMath.ONE.sub(DecimalMath.divCeil(baseDepth, poolQuote));
-            poolI = ratio.mul(ratio).div(avgPrice);
+            uint256 ratio = DecimalMath.ONE - DecimalMath.divCeil(baseDepth, poolQuote);
+            poolI = ratio * ratio / avgPrice;
         }
     }
 
@@ -178,13 +163,13 @@ contract CPFunding is CPStorage {
     function getExpectedAvgPrice() external view returns (uint256) {
         require(!_SETTLED_, "ALREADY_SETTLED");
         (uint256 poolBase, uint256 poolQuote, , , ) = getSettleResult();
-        return DecimalMath.divCeil(poolQuote, _BASE_TOKEN_.balanceOf(address(this)).sub(poolBase));
+        return DecimalMath.divCeil(poolQuote, _BASE_TOKEN_.balanceOf(address(this)) - poolBase);
     }
 
     // ============ Asset In ============
 
     function _getQuoteInput() internal view returns (uint256 input) {
-        return _QUOTE_TOKEN_.balanceOf(address(this)).sub(_QUOTE_RESERVE_);
+        return _QUOTE_TOKEN_.balanceOf(address(this)) - _QUOTE_RESERVE_;
     }
 
     // ============ Set States ============

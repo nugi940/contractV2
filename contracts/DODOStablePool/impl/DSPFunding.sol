@@ -5,7 +5,7 @@
 
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
 import {DSPVault} from "./DSPVault.sol";
@@ -36,8 +36,8 @@ contract DSPFunding is DSPVault {
         uint256 baseReserve = _BASE_RESERVE_;
         uint256 quoteReserve = _QUOTE_RESERVE_;
 
-        baseInput = baseBalance.sub(baseReserve);
-        quoteInput = quoteBalance.sub(quoteReserve);
+        baseInput = baseBalance - baseReserve;
+        quoteInput = quoteBalance - quoteReserve;
         require(baseInput > 0, "NO_BASE_INPUT");
 
         // Round down when withdrawing. Therefore, never be a situation occuring balance is 0 but totalsupply is not 0
@@ -56,8 +56,8 @@ contract DSPFunding is DSPVault {
             uint256 mintRatio = quoteInputRatio < baseInputRatio ? quoteInputRatio : baseInputRatio;
             shares = DecimalMath.mulFloor(totalSupply, mintRatio);
 
-            _BASE_TARGET_ = uint112(uint256(_BASE_TARGET_).add(DecimalMath.mulFloor(uint256(_BASE_TARGET_), mintRatio)));
-            _QUOTE_TARGET_ = uint112(uint256(_QUOTE_TARGET_).add(DecimalMath.mulFloor(uint256(_QUOTE_TARGET_), mintRatio)));
+            _BASE_TARGET_ = uint112(uint256(_BASE_TARGET_) + DecimalMath.mulFloor(uint256(_BASE_TARGET_), mintRatio));
+            _QUOTE_TARGET_ = uint112(uint256(_QUOTE_TARGET_) + DecimalMath.mulFloor(uint256(_QUOTE_TARGET_), mintRatio));
         }
         _mint(to, shares);
         _setReserve(baseBalance, quoteBalance);
@@ -80,11 +80,11 @@ contract DSPFunding is DSPVault {
         uint256 quoteBalance = _QUOTE_TOKEN_.balanceOf(address(this));
         uint256 totalShares = totalSupply;
 
-        baseAmount = baseBalance.mul(shareAmount).div(totalShares);
-        quoteAmount = quoteBalance.mul(shareAmount).div(totalShares);
+        baseAmount = (baseBalance * shareAmount) / totalShares;
+        quoteAmount = (quoteBalance * shareAmount) / totalShares;
 
-        _BASE_TARGET_ = uint112(uint256(_BASE_TARGET_).sub(uint256(_BASE_TARGET_).mul(shareAmount).divCeil(totalShares)));
-        _QUOTE_TARGET_ = uint112(uint256(_QUOTE_TARGET_).sub(uint256(_QUOTE_TARGET_).mul(shareAmount).divCeil(totalShares)));
+        _BASE_TARGET_ = uint112(uint256(_BASE_TARGET_) - ((uint256(_BASE_TARGET_) * shareAmount) / totalShares));
+        _QUOTE_TARGET_ = uint112(uint256(_QUOTE_TARGET_) - ((uint256(_QUOTE_TARGET_) * shareAmount) / totalShares));
 
         require(
             baseAmount >= baseMinAmount && quoteAmount >= quoteMinAmount,

@@ -5,7 +5,7 @@
 
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
 import {InitializableOwnable} from "../../lib/InitializableOwnable.sol";
@@ -21,7 +21,7 @@ contract CPStorage is InitializableOwnable, ReentrancyGuard {
     // ============ Constant ============
     
     uint256 internal constant _SETTLEMENT_EXPIRE_ = 86400 * 7;
-    uint256 internal constant _SETTEL_FUND_ = 200 finney;
+    uint256 internal constant _SETTEL_FUND_ = 0.2 ether;
     bool public _IS_OPEN_TWAP_ = false;
     bool public _IS_OVERCAP_STOP = false;
 

@@ -3,7 +3,7 @@
     SPDX-License-Identifier: Apache-2.0
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
 import {SafeMath} from "../../lib/SafeMath.sol";
@@ -54,7 +54,7 @@ contract DODONFTPoolProxy is InitializableOwnable, ReentrancyGuard {
         address defaultMaintainer,
         address dodoNftApprove,
         address dodoApprove
-    ) public {
+    ) {
         _CLONE_FACTORY_ = cloneFactory;
         _FILTER_ADMIN_TEMPLATE_ = filterAdminTemplate;
         _CONTROLLER_ = controllerModel;
@@ -124,8 +124,6 @@ contract DODONFTPoolProxy is InitializableOwnable, ReentrancyGuard {
         emit CreateLiteNFTPool(newFilterAdmin, filterAdminOwner);
     }
 
-
-
     function createNewNFTPoolV1(
         address filterAdminOwner,
         address nftCollection,
@@ -193,7 +191,6 @@ contract DODONFTPoolProxy is InitializableOwnable, ReentrancyGuard {
         );
     }
 
-
     // ================== NFT ERC20 Swap ======================
     function erc721ToErc20(
         address filterAdmin,
@@ -222,7 +219,7 @@ contract DODONFTPoolProxy is InitializableOwnable, ReentrancyGuard {
 
         uint256 returnAmount = _generalBalanceOf(toToken, address(this));
 
-        _generalTransfer(toToken, msg.sender, returnAmount);
+        _generalTransfer(toToken, payable(msg.sender), returnAmount); // Perbaikan: Konversi ke payable
 
         emit Erc721toErc20(nftContract, tokenId, toToken, returnAmount);
     }
@@ -265,7 +262,7 @@ contract DODONFTPoolProxy is InitializableOwnable, ReentrancyGuard {
             if (allowance > 0) {
                 IERC20(token).safeApprove(to, 0);
             }
-            IERC20(token).safeApprove(to, uint256(-1));
+            IERC20(token).safeApprove(to, type(uint256).max); // Perbaikan: Ganti uint256(-1) dengan type(uint256).max
         }
     }
 

@@ -5,7 +5,7 @@
 
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 
 import {InitializableOwnable} from "../lib/InitializableOwnable.sol";
 import {IERC20} from "../intf/IERC20.sol";

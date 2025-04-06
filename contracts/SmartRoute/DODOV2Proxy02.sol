@@ -1,11 +1,8 @@
 /*
-
     Copyright 2020 DODO ZOO.
     SPDX-License-Identifier: Apache-2.0
-
 */
-
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 
 import {IDODOV2Proxy01} from "./intf/IDODOV2Proxy01.sol";
 import {IDODOV2} from "./intf/IDODOV2.sol";
@@ -23,26 +20,16 @@ import {ReentrancyGuard} from "../lib/ReentrancyGuard.sol";
 import {InitializableOwnable} from "../lib/InitializableOwnable.sol";
 import {IDODOAdapter} from "./intf/IDODOAdapter.sol";
 
-/**
- * @title DODOV2Proxy02
- * @author DODO Breeder
- *
- * @notice Entrance of trading in DODO platform
- */
 contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable {
     using SafeMath for uint256;
     using UniversalERC20 for IERC20;
-
-    // ============ Storage ============
 
     address constant _ETH_ADDRESS_ = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     address public immutable _WETH_;
     address public immutable _DODO_APPROVE_PROXY_;
     address public immutable _DODO_SELL_HELPER_;
     address public immutable _DVM_FACTORY_;
-    mapping (address => bool) public isWhiteListed;
-
-    // ============ Events ============
+    mapping(address => bool) public isWhiteListed;
 
     event OrderHistory(
         address fromToken,
@@ -52,15 +39,12 @@ contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable 
         uint256 returnAmount
     );
 
-    // ============ Modifiers ============
-
     modifier judgeExpired(uint256 deadLine) {
         require(deadLine >= block.timestamp, "DODOV2Proxy02: EXPIRED");
         _;
     }
 
     fallback() external payable {}
-
     receive() external payable {}
 
     constructor(
@@ -68,22 +52,20 @@ contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable 
         address payable weth,
         address dodoApproveProxy,
         address dodoSellHelper
-    ) public {
+    ) {
         _DVM_FACTORY_ = dvmFactory;
         _WETH_ = weth;
         _DODO_APPROVE_PROXY_ = dodoApproveProxy;
         _DODO_SELL_HELPER_ = dodoSellHelper;
     }
 
-    function addWhiteList (address contractAddr) public onlyOwner {
+    function addWhiteList(address contractAddr) public onlyOwner {
         isWhiteListed[contractAddr] = true;
     }
 
-    function removeWhiteList (address contractAddr) public onlyOwner {
+    function removeWhiteList(address contractAddr) public onlyOwner {
         isWhiteListed[contractAddr] = false;
     }
-
-    // ============ DVM Functions (create & add liquidity) ============
 
     function createDODOVendingMachine(
         address baseToken,
@@ -119,20 +101,8 @@ contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable 
         {
             address _baseToken = baseToken;
             address _quoteToken = quoteToken;
-            _deposit(
-                msg.sender,
-                newVendingMachine,
-                _baseToken,
-                baseInAmount,
-                _baseToken == _ETH_ADDRESS_
-            );
-            _deposit(
-                msg.sender,
-                newVendingMachine,
-                _quoteToken,
-                quoteInAmount,
-                _quoteToken == _ETH_ADDRESS_
-            );
+            _deposit(msg.sender, newVendingMachine, _baseToken, baseInAmount, _baseToken == _ETH_ADDRESS_);
+            _deposit(msg.sender, newVendingMachine, _quoteToken, quoteInAmount, _quoteToken == _ETH_ADDRESS_);
         }
 
         (shares, , ) = IDODOV2(newVendingMachine).buyShares(msg.sender);
@@ -144,7 +114,7 @@ contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable 
         uint256 quoteInAmount,
         uint256 baseMinAmount,
         uint256 quoteMinAmount,
-        uint8 flag, // 0 - ERC20, 1 - baseInETH, 2 - quoteInETH
+        uint8 flag,
         uint256 deadLine
     )
         external
@@ -159,11 +129,7 @@ contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable 
         )
     {
         address _dvm = dvmAddress;
-        (baseAdjustedInAmount, quoteAdjustedInAmount) = _addDVMLiquidity(
-            _dvm,
-            baseInAmount,
-            quoteInAmount
-        );
+        (baseAdjustedInAmount, quoteAdjustedInAmount) = _addDVMLiquidity(_dvm, baseInAmount, quoteInAmount);
         require(
             baseAdjustedInAmount >= baseMinAmount && quoteAdjustedInAmount >= quoteMinAmount,
             "DODOV2Proxy02: deposit amount is not enough"
@@ -173,9 +139,8 @@ contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable 
         _deposit(msg.sender, _dvm, IDODOV2(_dvm)._QUOTE_TOKEN_(), quoteAdjustedInAmount, flag == 2);
         
         (shares, , ) = IDODOV2(_dvm).buyShares(msg.sender);
-        // refund dust eth
-        if (flag == 1 && msg.value > baseAdjustedInAmount) msg.sender.transfer(msg.value - baseAdjustedInAmount);
-        if (flag == 2 && msg.value > quoteAdjustedInAmount) msg.sender.transfer(msg.value - quoteAdjustedInAmount);
+        if (flag == 1 && msg.value > baseAdjustedInAmount) payable(msg.sender).transfer(msg.value - baseAdjustedInAmount);
+        if (flag == 2 && msg.value > quoteAdjustedInAmount) payable(msg.sender).transfer(msg.value - quoteAdjustedInAmount);
     }
 
     function _addDVMLiquidity(
@@ -204,8 +169,6 @@ contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable 
             }
         }
     }
-
-    // ============ Swap ============
 
     function dodoSwapV2ETHToToken(
         address toToken,
@@ -248,13 +211,7 @@ contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable 
         returnAmount = IERC20(toToken).balanceOf(msg.sender).sub(originToTokenBalance);
         require(returnAmount >= minReturnAmount, "DODOV2Proxy02: Return amount is not enough");
 
-        emit OrderHistory(
-            _ETH_ADDRESS_,
-            toToken,
-            msg.sender,
-            msg.value,
-            returnAmount
-        );
+        emit OrderHistory(_ETH_ADDRESS_, toToken, msg.sender, msg.value, returnAmount);
     }
 
     function dodoSwapV2TokenToETH(
@@ -295,15 +252,9 @@ contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable 
         returnAmount = IWETH(_WETH_).balanceOf(address(this));
         require(returnAmount >= minReturnAmount, "DODOV2Proxy02: Return amount is not enough");
         IWETH(_WETH_).withdraw(returnAmount);
-        msg.sender.transfer(returnAmount);
+        payable(msg.sender).transfer(returnAmount);
 
-        emit OrderHistory(
-            fromToken,
-            _ETH_ADDRESS_,
-            msg.sender,
-            fromTokenAmount,
-            returnAmount
-        );
+        emit OrderHistory(fromToken, _ETH_ADDRESS_, msg.sender, fromTokenAmount, returnAmount);
     }
 
     function dodoSwapV2TokenToToken(
@@ -335,7 +286,7 @@ contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable 
                     IDODOV2(dodoPairs[i]).sellQuote(msg.sender);
                 }
             } else {
-                if (directions& 1 == 0) {
+                if (directions & 1 == 0) {
                     IDODOV2(dodoPairs[i]).sellBase(dodoPairs[i + 1]);
                 } else {
                     IDODOV2(dodoPairs[i]).sellQuote(dodoPairs[i + 1]);
@@ -346,13 +297,7 @@ contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable 
         returnAmount = IERC20(toToken).balanceOf(msg.sender).sub(originToTokenBalance);
         require(returnAmount >= minReturnAmount, "DODOV2Proxy02: Return amount is not enough");
 
-        emit OrderHistory(
-            fromToken,
-            toToken,
-            msg.sender,
-            fromTokenAmount,
-            returnAmount
-        );
+        emit OrderHistory(fromToken, toToken, msg.sender, fromTokenAmount, returnAmount);
     }
 
     function externalSwap(
@@ -376,35 +321,20 @@ contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable 
         
         uint256 toTokenOriginBalance = IERC20(toToken).universalBalanceOf(msg.sender);
         if (fromToken != _ETH_ADDRESS_) {
-            IDODOApproveProxy(_DODO_APPROVE_PROXY_).claimTokens(
-                fromToken,
-                msg.sender,
-                address(this),
-                fromTokenAmount
-            );
+            IDODOApproveProxy(_DODO_APPROVE_PROXY_).claimTokens(fromToken, msg.sender, address(this), fromTokenAmount);
             IERC20(fromToken).universalApproveMax(approveTarget, fromTokenAmount);
         }
 
         require(isWhiteListed[swapTarget], "DODOV2Proxy02: Not Whitelist Contract");
         (bool success, ) = swapTarget.call{value: fromToken == _ETH_ADDRESS_ ? msg.value : 0}(callDataConcat);
-
         require(success, "DODOV2Proxy02: External Swap execution Failed");
 
-        IERC20(toToken).universalTransfer(
-            msg.sender,
-            IERC20(toToken).universalBalanceOf(address(this))
-        );
+        IERC20(toToken).universalTransfer(payable(msg.sender), IERC20(toToken).universalBalanceOf(address(this))); // Perbaikan
 
         returnAmount = IERC20(toToken).universalBalanceOf(msg.sender).sub(toTokenOriginBalance);
         require(returnAmount >= minReturnAmount, "DODOV2Proxy02: Return amount is not enough");
 
-        emit OrderHistory(
-            fromToken,
-            toToken,
-            msg.sender,
-            fromTokenAmount,
-            returnAmount
-        );
+        emit OrderHistory(fromToken, toToken, msg.sender, fromTokenAmount, returnAmount);
     }
 
     function dodoSwapV1(
@@ -426,7 +356,6 @@ contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable 
         require(dodoPairs.length > 0, "DODOV2Proxy02: PAIRS_EMPTY");
         require(minReturnAmount > 0, "DODOV2Proxy02: RETURN_AMOUNT_ZERO");
         
-
         address _fromToken = fromToken;
         address _toToken = toToken;
         
@@ -443,16 +372,12 @@ contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable 
                 address curDodoQuote = IDODOV1(curDodoPair)._QUOTE_TOKEN_();
                 uint256 curAmountIn = IERC20(curDodoQuote).balanceOf(address(this));
                 IERC20(curDodoQuote).universalApproveMax(curDodoPair, curAmountIn);
-                uint256 canBuyBaseAmount = IDODOSellHelper(_DODO_SELL_HELPER_).querySellQuoteToken(
-                    curDodoPair,
-                    curAmountIn
-                );
+                uint256 canBuyBaseAmount = IDODOSellHelper(_DODO_SELL_HELPER_).querySellQuoteToken(curDodoPair, curAmountIn);
                 IDODOV1(curDodoPair).buyBaseToken(canBuyBaseAmount, curAmountIn, "");
             }
             directions = directions >> 1;
         }
 
-        
         if (_toToken == _ETH_ADDRESS_) {
             returnAmount = IWETH(_WETH_).balanceOf(address(this));
             IWETH(_WETH_).withdraw(returnAmount);
@@ -461,22 +386,10 @@ contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable 
         }
         
         require(returnAmount >= minReturnAmount, "DODOV2Proxy02: Return amount is not enough");
-        IERC20(_toToken).universalTransfer(msg.sender, returnAmount);
+        IERC20(_toToken).universalTransfer(payable(msg.sender), returnAmount); // Perbaikan
 
         emit OrderHistory(_fromToken, _toToken, msg.sender, fromTokenAmount, returnAmount);
     }
-
-    //============ CrowdPooling Functions (bid) ============
-    // function bid(
-    //     address cpAddress,
-    //     uint256 quoteAmount,
-    //     uint8 flag, // 0 - ERC20, 1 - quoteInETH
-    //     uint256 deadLine
-    // ) external override payable preventReentrant judgeExpired(deadLine) {
-    //     _deposit(msg.sender, cpAddress, IDODOV2(cpAddress)._QUOTE_TOKEN_(), quoteAmount, flag == 1);
-    //     IDODOV2(cpAddress).bid(msg.sender);
-    // }
-
 
     function addLiquidityToV1(
         address pair,
@@ -484,7 +397,7 @@ contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable 
         uint256 quoteAmount,
         uint256 baseMinShares,
         uint256 quoteMinShares,
-        uint8 flag, // 0 erc20 In  1 baseInETH  2 quoteIn ETH 
+        uint8 flag,
         uint256 deadLine
     ) external override payable preventReentrant judgeExpired(deadLine) returns(uint256 baseShares, uint256 quoteShares) {
         address _baseToken = IDODOV1(pair)._BASE_TOKEN_();
@@ -493,7 +406,6 @@ contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable 
         _deposit(msg.sender, address(this), _baseToken, baseAmount, flag == 1);
         _deposit(msg.sender, address(this), _quoteToken, quoteAmount, flag == 2);
 
-        
         if(baseAmount > 0) {
             IERC20(_baseToken).universalApproveMax(pair, baseAmount);
             baseShares = IDODOV1(pair).depositBaseTo(msg.sender, baseAmount);
@@ -503,17 +415,10 @@ contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable 
             quoteShares = IDODOV1(pair).depositQuoteTo(msg.sender, quoteAmount);
         }
 
-        require(baseShares >= baseMinShares && quoteShares >= quoteMinShares,"DODOV2Proxy02: Return DLP is not enough");
+        require(baseShares >= baseMinShares && quoteShares >= quoteMinShares, "DODOV2Proxy02: Return DLP is not enough");
     }
     
-
-    function _deposit(
-        address from,
-        address to,
-        address token,
-        uint256 amount,
-        bool isETH
-    ) internal {
+    function _deposit(address from, address to, address token, uint256 amount, bool isETH) internal {
         if (isETH) {
             if (amount > 0) {
                 require(msg.value == amount, "ETH_VALUE_WRONG");
@@ -525,12 +430,7 @@ contract DODOV2Proxy02 is IDODOV2Proxy01, ReentrancyGuard, InitializableOwnable 
         }
     }
 
-    function _withdraw(
-        address payable to,
-        address token,
-        uint256 amount,
-        bool isETH
-    ) internal {
+    function _withdraw(address payable to, address token, uint256 amount, bool isETH) internal {
         if (isETH) {
             if (amount > 0) {
                 IWETH(_WETH_).withdraw(amount);

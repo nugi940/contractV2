@@ -4,7 +4,7 @@
     SPDX-License-Identifier: Apache-2.0
 
 */
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
 import {ICloneFactory} from "../lib/CloneFactory.sol";

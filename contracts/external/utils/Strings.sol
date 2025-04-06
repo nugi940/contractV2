@@ -1,7 +1,7 @@
 // This is a file copied from https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Strings.sol
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 
 /**
  * @dev String operations.

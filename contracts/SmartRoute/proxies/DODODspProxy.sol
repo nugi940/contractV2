@@ -1,11 +1,9 @@
 /*
-
     Copyright 2020 DODO ZOO.
     SPDX-License-Identifier: Apache-2.0
-
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 
 import {IDODOApproveProxy} from "../DODOApproveProxy.sol";
 import {IERC20} from "../../intf/IERC20.sol";
@@ -48,7 +46,7 @@ contract DODODspProxy is ReentrancyGuard {
         address dspFactory,
         address payable weth,
         address dodoApproveProxy
-    ) public {
+    ) {
         _DSP_FACTORY_ = dspFactory;
         _WETH_ = weth;
         _DODO_APPROVE_PROXY_ = dodoApproveProxy;
@@ -144,10 +142,9 @@ contract DODODspProxy is ReentrancyGuard {
         (shares, , ) = IDSP(_dsp).buyShares(msg.sender);
 
         // refund dust eth
-        if (flag == 1 && msg.value > baseAdjustedInAmount) msg.sender.transfer(msg.value - baseAdjustedInAmount);
-        if (flag == 2 && msg.value > quoteAdjustedInAmount) msg.sender.transfer(msg.value - quoteAdjustedInAmount);
+        if (flag == 1 && msg.value > baseAdjustedInAmount) payable(msg.sender).transfer(msg.value - baseAdjustedInAmount); // Perbaikan
+        if (flag == 2 && msg.value > quoteAdjustedInAmount) payable(msg.sender).transfer(msg.value - quoteAdjustedInAmount);
     }
-
 
     // =================== internal functions =====================
 

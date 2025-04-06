@@ -2,7 +2,7 @@
  *Submitted for verification at Etherscan.io on 2019-06-10
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
 /// @title Multicall - Aggregate results from multiple read-only function calls

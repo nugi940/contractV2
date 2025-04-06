@@ -5,11 +5,10 @@
 
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 
 import {InitializableOwnable} from "../lib/InitializableOwnable.sol";
 import {SafeERC20} from "../lib/SafeERC20.sol";
-import {SafeMath} from "../lib/SafeMath.sol";
 import {IERC20} from "../intf/IERC20.sol";
 
 interface IDODOIncentive {
@@ -20,14 +19,7 @@ interface IDODOIncentive {
     ) external;
 }
 
-/**
- * @title DODOIncentive
- * @author DODO Breeder
- *
- * @notice Trade Incentive in DODO platform
- */
 contract DODOIncentive is InitializableOwnable {
-    using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
     // ============ Storage ============
@@ -49,7 +41,7 @@ contract DODOIncentive is InitializableOwnable {
     event SetDefaultRate(uint256 defaultRate);
     event Incentive(address user, uint256 reward);
 
-    constructor(address _dodoToken) public {
+    constructor(address _dodoToken) {
         _DODO_TOKEN_ = _dodoToken;
     }
 
@@ -80,7 +72,7 @@ contract DODOIncentive is InitializableOwnable {
 
     function emptyReward(address assetTo) public onlyOwner {
         uint256 balance = IERC20(_DODO_TOKEN_).balanceOf(address(this));
-        IERC20(_DODO_TOKEN_).transfer(assetTo, balance);
+        IERC20(_DODO_TOKEN_).safeTransfer(assetTo, balance);
     }
 
     // ============ Incentive  function ============
@@ -104,21 +96,23 @@ contract DODOIncentive is InitializableOwnable {
 
         _update(_totalReward, _totalDistribution);
         if (reward != 0) {
-            IERC20(_DODO_TOKEN_).transfer(assetTo, reward);
+            IERC20(_DODO_TOKEN_).safeTransfer(assetTo, reward);
             emit Incentive(assetTo, reward);
         }
     }
 
     function _updateTotalReward() internal {
         uint256 _totalReward = _getTotalReward();
-        require(_totalReward < uint112(-1), "OVERFLOW");
+        require(_totalReward < type(uint112).max, "OVERFLOW");
         totalReward = uint112(_totalReward);
         lastRewardBlock = uint32(block.number);
     }
 
     function _update(uint256 _totalReward, uint256 _totalDistribution) internal {
         require(
-            _totalReward < uint112(-1) && _totalDistribution < uint112(-1) && block.number < uint32(-1),
+            _totalReward < type(uint112).max && 
+            _totalDistribution < type(uint112).max && 
+            block.number < type(uint32).max,
             "OVERFLOW"
         );
         lastRewardBlock = uint32(block.number);

@@ -1,11 +1,8 @@
 /*
-
     Copyright 2020 DODO ZOO.
     SPDX-License-Identifier: Apache-2.0
-
 */
-
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
 import {DVMVault} from "./DVMVault.sol";
@@ -14,14 +11,10 @@ import {IDODOCallee} from "../../intf/IDODOCallee.sol";
 
 contract DVMFunding is DVMVault {
     // ============ Events ============
-
     event BuyShares(address to, uint256 increaseShares, uint256 totalShares);
-
     event SellShares(address payer, address to, uint256 decreaseShares, uint256 totalShares);
 
     // ============ Buy & Sell Shares ============
-
-    // buy shares [round down]
     function buyShares(address to)
         external
         preventReentrant
@@ -36,19 +29,17 @@ contract DVMFunding is DVMVault {
         uint256 baseReserve = _BASE_RESERVE_;
         uint256 quoteReserve = _QUOTE_RESERVE_;
 
-        baseInput = baseBalance.sub(baseReserve);
-        quoteInput = quoteBalance.sub(quoteReserve);
+        baseInput = baseBalance - baseReserve;
+        quoteInput = quoteBalance - quoteReserve;
         require(baseInput > 0, "NO_BASE_INPUT");
 
-        // Round down when withdrawing. Therefore, never be a situation occuring balance is 0 but totalsupply is not 0
-        // But May Happen，reserve >0 But totalSupply = 0
         if (totalSupply == 0) {
             // case 1. initial supply
             require(baseBalance >= 10**3, "INSUFFICIENT_LIQUIDITY_MINED");
-            shares = baseBalance; // 以免出现balance很大但shares很小的情况
+            shares = baseBalance;
         } else if (baseReserve > 0 && quoteReserve == 0) {
             // case 2. supply when quote reserve is 0
-            shares = baseInput.mul(totalSupply).div(baseReserve);
+            shares = (baseInput * totalSupply) / baseReserve; // Ganti .mul() dan .div()
         } else if (baseReserve > 0 && quoteReserve > 0) {
             // case 3. normal case
             uint256 baseInputRatio = DecimalMath.divFloor(baseInput, baseReserve);
@@ -61,7 +52,6 @@ contract DVMFunding is DVMVault {
         emit BuyShares(to, shares, _SHARES_[to]);
     }
 
-    // sell shares [round down]
     function sellShares(
         uint256 shareAmount,
         address to,
@@ -76,8 +66,8 @@ contract DVMFunding is DVMVault {
         uint256 quoteBalance = _QUOTE_TOKEN_.balanceOf(address(this));
         uint256 totalShares = totalSupply;
 
-        baseAmount = baseBalance.mul(shareAmount).div(totalShares);
-        quoteAmount = quoteBalance.mul(shareAmount).div(totalShares);
+        baseAmount = (baseBalance * shareAmount) / totalShares; // Ganti .mul() dan .div()
+        quoteAmount = (quoteBalance * shareAmount) / totalShares; // Ganti .mul() dan .div()
 
         require(
             baseAmount >= baseMinAmount && quoteAmount >= quoteMinAmount,

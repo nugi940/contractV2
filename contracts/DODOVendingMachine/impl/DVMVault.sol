@@ -1,11 +1,8 @@
 /*
-
     Copyright 2020 DODO ZOO.
     SPDX-License-Identifier: Apache-2.0
-
 */
-
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
 import {IERC20} from "../../intf/IERC20.sol";
@@ -19,17 +16,12 @@ contract DVMVault is DVMStorage {
     using SafeERC20 for IERC20;
 
     // ============ Events ============
-
     event Transfer(address indexed from, address indexed to, uint256 amount);
-
     event Approval(address indexed owner, address indexed spender, uint256 amount);
-
     event Mint(address indexed user, uint256 value);
-
     event Burn(address indexed user, uint256 value);
 
     // ============ View Functions ============
-
     function getVaultReserve() external view returns (uint256 baseReserve, uint256 quoteReserve) {
         baseReserve = _BASE_RESERVE_;
         quoteReserve = _QUOTE_RESERVE_;
@@ -41,7 +33,6 @@ contract DVMVault is DVMStorage {
     }
 
     // ============ Asset In ============
-
     function getBaseInput() public view returns (uint256 input) {
         return _BASE_TOKEN_.balanceOf(address(this)).sub(uint256(_BASE_RESERVE_));
     }
@@ -51,7 +42,6 @@ contract DVMVault is DVMStorage {
     }
 
     // ============ TWAP UPDATE ===========
-    
     function _twapUpdate() internal {
         uint32 blockTimestamp = uint32(block.timestamp % 2**32);
         uint32 timeElapsed = blockTimestamp - _BLOCK_TIMESTAMP_LAST_;
@@ -62,19 +52,18 @@ contract DVMVault is DVMStorage {
     }
 
     // ============ Set States ============
-
     function _setReserve(uint256 baseReserve, uint256 quoteReserve) internal {
-        require(baseReserve <= uint112(-1) && quoteReserve <= uint112(-1), "OVERFLOW");
+        require(baseReserve <= type(uint112).max && quoteReserve <= type(uint112).max, "OVERFLOW");
         _BASE_RESERVE_ = uint112(baseReserve);
         _QUOTE_RESERVE_ = uint112(quoteReserve);
 
-        if(_IS_OPEN_TWAP_) _twapUpdate();
+        if (_IS_OPEN_TWAP_) _twapUpdate();
     }
 
     function _sync() internal {
         uint256 baseBalance = _BASE_TOKEN_.balanceOf(address(this));
         uint256 quoteBalance = _QUOTE_TOKEN_.balanceOf(address(this));
-        require(baseBalance <= uint112(-1) && quoteBalance <= uint112(-1), "OVERFLOW");
+        require(baseBalance <= type(uint112).max && quoteBalance <= type(uint112).max, "OVERFLOW");
         if (baseBalance != _BASE_RESERVE_) {
             _BASE_RESERVE_ = uint112(baseBalance);
         }
@@ -82,16 +71,14 @@ contract DVMVault is DVMStorage {
             _QUOTE_RESERVE_ = uint112(quoteBalance);
         }
 
-        if(_IS_OPEN_TWAP_) _twapUpdate();
+        if (_IS_OPEN_TWAP_) _twapUpdate();
     }
-
 
     function sync() external preventReentrant {
         _sync();
     }
 
     // ============ Asset Out ============
-
     function _transferBaseOut(address to, uint256 amount) internal {
         if (amount > 0) {
             _BASE_TOKEN_.safeTransfer(to, amount);
@@ -105,12 +92,6 @@ contract DVMVault is DVMStorage {
     }
 
     // ============ Shares (ERC20) ============
-
-    /**
-     * @dev transfer token for a specified address
-     * @param to The address to transfer to.
-     * @param amount The amount to be transferred.
-     */
     function transfer(address to, uint256 amount) public returns (bool) {
         require(amount <= _SHARES_[msg.sender], "BALANCE_NOT_ENOUGH");
 
@@ -120,21 +101,10 @@ contract DVMVault is DVMStorage {
         return true;
     }
 
-    /**
-     * @dev Gets the balance of the specified address.
-     * @param owner The address to query the the balance of.
-     * @return balance An uint256 representing the amount owned by the passed address.
-     */
     function balanceOf(address owner) external view returns (uint256 balance) {
         return _SHARES_[owner];
     }
 
-    /**
-     * @dev Transfer tokens from one address to another
-     * @param from address The address which you want to send tokens from
-     * @param to address The address which you want to transfer to
-     * @param amount uint256 the amount of tokens to be transferred
-     */
     function transferFrom(
         address from,
         address to,
@@ -150,11 +120,6 @@ contract DVMVault is DVMStorage {
         return true;
     }
 
-    /**
-     * @dev Approve the passed address to spend the specified amount of tokens on behalf of msg.sender.
-     * @param spender The address which will spend the funds.
-     * @param amount The amount of tokens to be spent.
-     */
     function approve(address spender, uint256 amount) public returns (bool) {
         _approve(msg.sender, spender, amount);
         return true;
@@ -169,12 +134,6 @@ contract DVMVault is DVMStorage {
         emit Approval(owner, spender, amount);
     }
 
-    /**
-     * @dev Function to check the amount of tokens that an owner _ALLOWED_ to a spender.
-     * @param owner address The address which owns the funds.
-     * @param spender address The address which will spend the funds.
-     * @return A uint256 specifying the amount of tokens still available for the spender.
-     */
     function allowance(address owner, address spender) public view returns (uint256) {
         return _ALLOWED_[owner][spender];
     }
@@ -195,7 +154,6 @@ contract DVMVault is DVMStorage {
     }
 
     // ============================ Permit ======================================
-    
     function permit(
         address owner,
         address spender,

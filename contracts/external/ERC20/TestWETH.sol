@@ -1,12 +1,9 @@
 /*
-
     Copyright 2020 DODO ZOO.
     SPDX-License-Identifier: Apache-2.0
-
 */
 
-pragma solidity 0.6.9;
-
+pragma solidity ^0.8.29;
 
 contract WETH9 {
     string public name = "Wrapped Ether";
@@ -35,9 +32,9 @@ contract WETH9 {
     }
 
     function withdraw(uint256 wad) public {
-        require(balanceOf[msg.sender] >= wad);
+        require(balanceOf[msg.sender] >= wad, "WETH9: Insufficient balance");
         balanceOf[msg.sender] -= wad;
-        msg.sender.transfer(wad);
+        payable(msg.sender).transfer(wad); // Perbaikan: Konversi ke address payable
         emit Withdrawal(msg.sender, wad);
     }
 
@@ -60,17 +57,17 @@ contract WETH9 {
         address dst,
         uint256 wad
     ) public returns (bool) {
-        require(balanceOf[src] >= wad);
+        require(balanceOf[src] >= wad, "WETH9: Insufficient balance");
 
-        if (src != msg.sender && allowance[src][msg.sender] != uint256(-1)) {
-            require(allowance[src][msg.sender] >= wad);
+        if (src != msg.sender && allowance[src][msg.sender] != type(uint256).max) {
+            require(allowance[src][msg.sender] >= wad, "WETH9: Insufficient allowance");
             allowance[src][msg.sender] -= wad;
         }
 
         balanceOf[src] -= wad;
         balanceOf[dst] += wad;
 
-        Transfer(src, dst, wad);
+        emit Transfer(src, dst, wad); // Perbaikan: Emit event dengan "emit"
 
         return true;
     }

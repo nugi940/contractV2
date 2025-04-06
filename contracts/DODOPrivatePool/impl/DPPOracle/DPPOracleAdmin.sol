@@ -5,7 +5,7 @@
 
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 pragma experimental ABIEncoderV2;
 
 import {IDPPOracle} from "../../intf/IDPPOracle.sol";
@@ -119,7 +119,7 @@ contract DPPOracleAdmin is InitializableOwnable {
             msg.sender == _OWNER_ ||
                 (IDODOApproveProxy(_DODO_APPROVE_PROXY_).isAllowedProxy(msg.sender) &&
                     operator == _OPERATOR_),
-            "RESET FORBIDDEN！"
+            "RESET FORBIDDEN!"
         ); // only allow owner directly call or operator call via DODODppProxy
         return
             IDPPOracle(_DPP_).reset(

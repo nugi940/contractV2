@@ -3,7 +3,7 @@
     SPDX-License-Identifier: Apache-2.0
 */
 
-pragma solidity 0.6.9;
+pragma solidity ^0.8.29;
 
 import {IDODOApproveProxy} from "../DODOApproveProxy.sol";
 import {IDODOV2} from "./../intf/IDODOV2.sol";
@@ -11,21 +11,7 @@ import {IERC20} from "../../intf/IERC20.sol";
 import {SafeERC20} from "../../lib/SafeERC20.sol";
 import {IWETH} from "../../intf/IWETH.sol";
 import {SafeMath} from "../../lib/SafeMath.sol";
-import {SafeERC20} from "../../lib/SafeERC20.sol";
 import {ReentrancyGuard} from "../../lib/ReentrancyGuard.sol";
-
-// interface IDPPOracle {
-//     function reset(
-//         address assetTo,
-//         uint256 newLpFeeRate,
-//         uint256 newK,
-//         uint256 baseOutAmount,
-//         uint256 quoteOutAmount,
-//         uint256 minBaseReserve,
-//         uint256 minQuoteReserve
-//     ) external returns (bool);
-// }
-
 
 /**
  * @title DODODppProxy
@@ -59,13 +45,12 @@ contract DODODppProxy is ReentrancyGuard {
         address payable weth,
         address dodoApproveProxy,
         address dppFactory
-    ) public {
+    ) {
         _WETH_ = weth;
         _DODO_APPROVE_PROXY_ = dodoApproveProxy;
         _DPP_FACTORY_ = dppFactory;
     }
 
-    
     function createDODOPrivatePool(
         address baseToken,
         address quoteToken,
@@ -146,50 +131,9 @@ contract DODODppProxy is ReentrancyGuard {
             minQuoteReserve
         ), "Reset Failed");
 
-        _withdraw(msg.sender, IDODOV2(dppAddress)._BASE_TOKEN_(), amountList[2], flag == 3);
-        _withdraw(msg.sender, IDODOV2(dppAddress)._QUOTE_TOKEN_(), amountList[3], flag == 4);
+        _withdraw(payable(msg.sender), IDODOV2(dppAddress)._BASE_TOKEN_(), amountList[2], flag == 3); // Perbaikan
+        _withdraw(payable(msg.sender), IDODOV2(dppAddress)._QUOTE_TOKEN_(), amountList[3], flag == 4); // Perbaikan
     }
-
-    
-    
-    // DPPOracle
-    // function resetDODOPrivatePool(
-    //     address dppAddress,
-    //     uint256[] memory paramList,  //0 - newLpFeeRate, 1 - newK
-    //     uint256[] memory amountList, //0 - baseInAmount, 1 - quoteInAmount, 2 - baseOutAmount, 3- quoteOutAmount
-    //     uint8 flag, //0 - ERC20, 1 - baseInETH, 2 - quoteInETH, 3 - baseOutETH, 4 - quoteOutETH
-    //     uint256 minBaseReserve,
-    //     uint256 minQuoteReserve,
-    //     uint256 deadLine
-    // ) external payable preventReentrant judgeExpired(deadLine) {
-    //     _deposit(
-    //         msg.sender,
-    //         dppAddress,
-    //         IDODOV2(dppAddress)._BASE_TOKEN_(),
-    //         amountList[0],
-    //         flag == 1
-    //     );
-    //     _deposit(
-    //         msg.sender,
-    //         dppAddress,
-    //         IDODOV2(dppAddress)._QUOTE_TOKEN_(),
-    //         amountList[1],
-    //         flag == 2
-    //     );
-
-    //     require(IDPPOracle(IDODOV2(dppAddress)._OWNER_()).reset(
-    //         msg.sender,
-    //         paramList[0],
-    //         paramList[1],
-    //         amountList[2],
-    //         amountList[3],
-    //         minBaseReserve,
-    //         minQuoteReserve
-    //     ), "Reset Failed");
-
-    //     _withdraw(msg.sender, IDODOV2(dppAddress)._BASE_TOKEN_(), amountList[2], flag == 3);
-    //     _withdraw(msg.sender, IDODOV2(dppAddress)._QUOTE_TOKEN_(), amountList[3], flag == 4);
-    // }
 
     //====================== internal =======================
 
